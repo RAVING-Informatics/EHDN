@@ -152,8 +152,7 @@ $ ./annotate-results.sh /data/preprocessed/bams-str
 It is important to create a copy of the EHDN results you generate so that they can be accessed by other analysts and are not lost if the Nimbus VM is lost. It's important to be conservative with what you save to save space. By default I save the following files:
 - Each individual str profile `<sampleID>.str_profile.json`
 - The annotated and sorted "locus" results for both case-control and outlier analysis:
--- `<sampleID>.CC_locus.annotated.sorted.tsv` 
--- `<sampleID>.outlier_locus.annotated.sorted.tsv`
+  - `<sampleID>.CC_locus.annotated.sorted.tsv` 
+  - `<sampleID>.outlier_locus.annotated.sorted.tsv`
 
 Save the str profiles and results in respective directory for each year: `<year>_Profiles` and `<year>_Results` within `/Volumes/PERKINS-LL-001/Sequencing/STR-calling/Expansion Hunter De Novo/chiara_Nimbus/`
-
