@@ -3,7 +3,7 @@
 #define variable
 ref=/data/references/Homo_sapiens_assembly38.fasta #path to reference sequence
 input_dir=$1 #path to input directory
-working_dir=/data/ExpansionHunterDenovo-v0.9.0-linux_x86_64/
+working_dir=/data/ExpansionHunterDenovo/
 
 #start while loop
 ls $input_dir | grep 'cram\|bam' | grep -v 'crai\|bai' | while read -r line ; do
@@ -32,13 +32,13 @@ basename=${line%%.*}
 
 # 4) expansion hunter de novo outlier and cc analysis
 echo "Compute locus outliers for ${basename}"
-/data/ExpansionHunterDenovo-v0.9.0-linux_x86_64/scripts/outlier.py locus \
+$working_dir/outlier/locusworkflow.py \
         --manifest $working_dir/manifests/$basename.manifest.tsv \
         --multisample-profile $working_dir/str-profiles/merged/$basename.multisample_profile.json \
         --output $working_dir/results/outlier/$basename.outlier_locus.tsv &&
 
 echo "Compute locus CC analysis for ${basename}"
-/data/ExpansionHunterDenovo-v0.9.0-linux_x86_64/scripts/casecontrol.py locus \
+$working_dir/scripts/casecontrol/locusworkflow.py \
         --manifest $working_dir/manifests/$basename.manifest.tsv \
         --multisample-profile $working_dir/str-profiles/merged/$basename.multisample_profile.json \
         --output $working_dir/results/cc/$basename.CC_locus.tsv &&
@@ -54,8 +54,8 @@ bash $working_dir/scripts/annotate_ehdn.sh \
     --annovar-buildver hg38
 
 bash $working_dir/scripts/annotate_ehdn.sh \
-    --ehdn-results /data/ExpansionHunterDenovo-v0.9.0-linux_x86_64/results/cc/${basename}.CC_locus.tsv \
-    --ehdn-annotated-results /data/ExpansionHunterDenovo-v0.9.0-linux_x86_64/results/cc/${basename}.CC_locus.annotated.tsv \
+    --ehdn-results $working_dir/results/cc/${basename}.CC_locus.tsv \
+    --ehdn-annotated-results $working_dir/results/cc/${basename}.CC_locus.annotated.tsv \
     --annovar-annotate-variation /data/annovar/annotate_variation.pl \
     --annovar-humandb /data/annovar/humandb \
     --annovar-buildver hg38 ;
