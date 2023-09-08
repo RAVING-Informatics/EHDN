@@ -150,6 +150,7 @@ Example command to execute this script:
 $ ./annotate-results.sh /data/preprocessed/bams-str
 ```
 In order to run this script you will need to set up `annovar`. Instructions for setting up `annovar` are available [here](https://github.com/Illumina/ExpansionHunterDenovo/blob/master/documentation/08_Annotation.md)
+
 ---
 
 ##Post-processing
