@@ -149,8 +149,13 @@ Example command to execute this script:
 ```
 $ ./annotate-results.sh /data/preprocessed/bams-str
 ```
-
+In order to run this script you will need to set up `annovar`. Instructions for setting up `annovar` are available [here](https://github.com/Illumina/ExpansionHunterDenovo/blob/master/documentation/08_Annotation.md)
 ---
+
+##Post-processing
+Once you have generated all your desired results, you can run two post-processing scripts that will add further annotation to the result files.
+The first was written by Ben Weisburd and is available in his [str-analysis repository](https://github.com/broadinstitute/str-analysis/blob/main/str_analysis/annotate_EHdn_locus_outliers.py). There is a copy of this script in the ./scripts directory in this repository, however it may be worth downloading a more recent version in case there are updates. 
+
 
 ## **Saving Results to IRDS**
 
