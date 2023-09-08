@@ -19,8 +19,12 @@ Pawsey Nimbus Instance: 16 CPU, 64 GB RAM, Ubuntu 18.04
 ---
 
 ## **Installation**
+You can clone this repository which contains all the necessary executables and scripts for runnign ExpansionHunter Denovo using:
 
-Documentation provides the option to build from source, or download the [pre-compiled binaries from GitHub](https://github.com/Illumina/ExpansionHunterDenovo/releases) (which I did):
+```
+$ git clone https://github.com/RAVING-Informatics/EHDN.git
+```
+If there are issues with the installation after cloning the repository you can refer to the documentation on the GitHub repository for ExpansionHunter Denovo. The Documentation provides the option to build from source, or download the [pre-compiled binaries from GitHub](https://github.com/Illumina/ExpansionHunterDenovo/releases) (which I did):
 
 ```
 $ wget https://github.com/Illumina/ExpansionHunterDenovo/releases/download/v0.9.0/ExpansionHunterDenovo-v0.9.0-linux_x86_64.tar.gz
@@ -37,7 +41,10 @@ Also good to add the executable to the PATH. Do this by adding the following lin
 
 ### Make Directory Structure
 
-**result directories**
+Note, if you have cloned this repository you shouldn't need to make the result directories.
+
+
+**input directories**
 
 input file type = `.bam or .cram`
 
@@ -50,7 +57,7 @@ $ mkdir /data/preprocessed/bams-str
 
 ```
 $ mkdir <path_to_ehdn_working_directory>/str-profiles
-$ mkdir <path_to_ehdn_working_directory>/outputs
+$ mkdir <path_to_ehdn_working_directory>/results
 
 ```
 
@@ -76,12 +83,13 @@ There are a number of scripts available in this repository within the sub-direct
 $ chmod u+x *.sh
 
 ```
-
 All the scripts require you to specify the location of the directory containing the input `.cram`/`.bam` files as the first and only input argument. Directions for how to use the scripts are specified below.
+There is also a run script that will run all components of the EHdn workflow: `run-ehdn.sh`. 
+
 
 ### *1) Generate Per Sample Manifest*
 
-The `01_make_manifest.sh` script modifies an existing template manifest `manifest.txt` by changing the "`basename`" of the `case` data. All of the other data in the manifest is the `control` data from the `Diversity` dataset. The script will output a `basename_manifest.txt` file to `/data/ExpansionHunterDenovo-v0.9.0-linux_x86_64/manifests/`. This file is required to merge the STR profiles and perform outlier analysis.
+The `01_make_manifest.sh` script modifies an existing template manifest `manifest.txt` by changing the "`basename`" of the `case` data. All of the other data in the manifest is the `control` data from the `Diversity` dataset. The script will output a `basename_manifest.txt` file to `<path_to_ehdn_working_directory>/manifests/`. This file is required to merge the STR profiles and perform outlier analysis.
 
 Example command to execute this script:
 
@@ -92,7 +100,7 @@ $ ./01_make-manifest.sh /data/preprocessed/bams-str
 
 ### *2) Generate STR profiles*
 
-`02_compute-str.sh` script will output an STR profile in `.json` format to `/data/ExpansionHunterDenovo-v0.9.0-linux_x86_64/str-profiles`
+`02_compute-str.sh` script will output an STR profile in `.json` format to `<path_to_ehdn_working_directory>/str-profiles`
 
 Example command to execute this script:
 
@@ -114,7 +122,7 @@ $ ./merge-profile.sh /data/preprocessed/bams-str
 
 ### *4) Run case-control analysis*
 
-The `05_case-control-analysis.sh` script will run both locus and motif analysis on the multisample STR profile generated in step 3). The results of this analysis will be output to the `results/` subdirectory of the workspace directory. There will be two results per sample, `basename.case-control_locus.tsv` and `basename.case-control_motif.tsv` for locus and for motif, respectively.
+The `05_case-control-analysis.sh` script will locus analysis on the multisample STR profile generated in step 3). The results of this analysis will be output to the `results/` subdirectory of the workspace directory: `basename.case-control_locus.tsv`.
 
 Example command to execute this script:
 
@@ -125,7 +133,7 @@ $ ./05_case-control-analysis.sh /data/preprocessed/bams-str
 
 ### *5) Run outlier analysis*
 
-The `05_outlier-analysis.sh` script will run both locus and motif analysis on the multisample STR profile generated in step 3). The results of this analysis will be output to the `results/` subdirectory of the workspace directory. There will be two results per sample, `basename.outlier_locus.tsv` and `basename.outlier_motif.tsv` for locus and for motif, respectively.
+The `05_outlier-analysis.sh` script will run locus analysis on the multisample STR profile generated in step 3). The results of this analysis will be output to the `results/` subdirectory of the workspace directory: `basename.outlier_locus.tsv`.
 
 Example command to execute this script:
 
@@ -148,7 +156,7 @@ $ ./annotate-results.sh /data/preprocessed/bams-str
 
 ## **Saving Results to IRDS**
 
-It is important to create a copy of the EHDN results you generate so that they can be accessed by other analysts and are not lost if the Nimbus VM is lost. It's important to be conservative with what you save to save space. By default I save the following files:
+It is important to create a copy of the EHDN results you generate so that they can be accessed by other analysts and are not lost if the Nimbus VM is lost. It's important to be conservative with what you transfer to save space. By default I save the following files:
 - Each individual str profile `<sampleID>.str_profile.json`
 - The annotated and sorted "locus" results for both case-control and outlier analysis:
   - `<sampleID>.CC_locus.annotated.sorted.tsv` 
