@@ -32,13 +32,13 @@ basename=${line%%.*}
 
 # 4) expansion hunter de novo outlier and cc analysis
 echo "Compute locus outliers for ${basename}"
-$working_dir/outlier/locusworkflow.py \
+$working_dir/scripts/outlier.py locus \
         --manifest $working_dir/manifests/$basename.manifest.tsv \
         --multisample-profile $working_dir/str-profiles/merged/$basename.multisample_profile.json \
         --output $working_dir/results/outlier/$basename.outlier_locus.tsv &&
 
 echo "Compute locus CC analysis for ${basename}"
-$working_dir/scripts/casecontrol/locusworkflow.py \
+$working_dir/scripts/casecontrol.py locus \
         --manifest $working_dir/manifests/$basename.manifest.tsv \
         --multisample-profile $working_dir/str-profiles/merged/$basename.multisample_profile.json \
         --output $working_dir/results/cc/$basename.CC_locus.tsv &&
