@@ -23,14 +23,13 @@ Pawsey Nimbus Instance: 16 CPU, 64 GB RAM, Ubuntu 18.04
 Documentation provides the option to build from source, or download the [pre-compiled binaries from GitHub](https://github.com/Illumina/ExpansionHunterDenovo/releases) (which I did):
 
 ```
-$ wget <https://github.com/Illumina/ExpansionHunterDenovo/releases/download/v0.9.0/ExpansionHunterDenovo-v0.9.0-linux_x86_64.tar.gz>
+$ wget https://github.com/Illumina/ExpansionHunterDenovo/releases/download/v0.9.0/ExpansionHunterDenovo-v0.9.0-linux_x86_64.tar.gz
 $ tar xzvf ExpansionHunterDenovo-v0.9.0-linux_x86_64.tar.gz
-
 ```
 
 Also good to add the executable to the PATH. Do this by adding the following line of code to the .bashrc file in your home directory:
 
-`export PATH=/data/ehdn/ExpansionHunterDenovo-v0.9.0-linux_x86_64/bin:$PATH`
+`export PATH=<path_to_ehdn_working_directory>/bin:$PATH`
 
 ---
 
@@ -50,8 +49,8 @@ $ mkdir /data/preprocessed/bams-str
 **result directories**
 
 ```
-$ mkdir /data/ExpansionHunterDenovo-v0.9.0-linux_x86_64/str-profiles
-$ mkdir /data/ExpansionHunterDenovo-v0.9.0-linux_x86_64/outputs
+$ mkdir <path_to_ehdn_working_directory>/str-profiles
+$ mkdir <path_to_ehdn_working_directory>/outputs
 
 ```
 
