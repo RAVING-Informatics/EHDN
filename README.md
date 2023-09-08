@@ -153,9 +153,13 @@ In order to run this script you will need to set up `annovar`. Instructions for 
 
 ---
 
-##Post-processing
+## **Post-processing**
+
 Once you have generated all your desired results, you can run two post-processing scripts that will add further annotation to the result files.
-The first was written by Ben Weisburd and is available in his [str-analysis repository](https://github.com/broadinstitute/str-analysis/blob/main/str_analysis/annotate_EHdn_locus_outliers.py). There is a copy of this script in the ./scripts directory in this repository, however it may be worth downloading a more recent version in case there are updates. 
+
+1) The first was written by Ben Weisburd and is available in his [str-analysis repository](https://github.com/broadinstitute/str-analysis/blob/main/str_analysis/annotate_EHdn_locus_outliers.py). There is a copy of this script in the ./scripts directory in this repository, however it may be worth downloading a more recent version in case there are updates. 
+
+2) The second is a python script I made with the help of chatGPT `gene-counts.py`. It counts the total number of occurrences of each gene in every result tsv file within a batch, then adds a new column to each tsv with the count data. I use this to see how many times the repeat is being caleld across the cohort, with t he assumption that if it is common it is likely to be a false positive call or an artefact.
 
 
 ## **Saving Results to IRDS**
