@@ -1,6 +1,6 @@
 #!/bin/bash
 
-input_dir=$1 #path to input directory
+input_dir=$1 #path to input directory which should be a results directory containing locus outlier tsv files
 working_dir=/data/ExpansionHunterDenovo
 
 #use this script to annotate ehdn result files
