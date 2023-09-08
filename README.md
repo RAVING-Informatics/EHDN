@@ -50,7 +50,6 @@ input file type = `.bam or .cram`
 
 ```
 $ mkdir /data/preprocessed/bams-str
-
 ```
 
 **result directories**
@@ -58,7 +57,6 @@ $ mkdir /data/preprocessed/bams-str
 ```
 $ mkdir <path_to_ehdn_working_directory>/str-profiles
 $ mkdir <path_to_ehdn_working_directory>/results
-
 ```
 
 ### Download Reference Sequence
@@ -81,11 +79,16 @@ There are a number of scripts available in this repository within the sub-direct
 
 ```
 $ chmod u+x *.sh
-
 ```
-All the scripts require you to specify the location of the directory containing the input `.cram`/`.bam` files as the first and only input argument. Directions for how to use the scripts are specified below.
+All the scripts require you to specify the location of the directory containing the input `.cram`/`.bam` files as the first and only input argument. Make sure to also edit the path to the working directory and the reference genome in each script. Details of what each script does are provided below:
+
 There is also a run script that will run all components of the EHdn workflow: `run-ehdn.sh`. 
 
+Example command to execute this script:
+
+```
+$ ./run-ehdn.sh /data/preprocessed/bams-str
+```
 
 ### *1) Generate Per Sample Manifest*
 
@@ -95,7 +98,6 @@ Example command to execute this script:
 
 ```
 $ ./01_make-manifest.sh /data/preprocessed/bams-str
-
 ```
 
 ### *2) Generate STR profiles*
@@ -106,7 +108,6 @@ Example command to execute this script:
 
 ```
 $ ./02_compute-str.sh /data/preprocessed/bams-str
-
 ```
 
 ### *3) Merge STR profiles*
@@ -117,7 +118,6 @@ Example command to execute this script:
 
 ```
 $ ./merge-profile.sh /data/preprocessed/bams-str
-
 ```
 
 ### *4) Run case-control analysis*
@@ -128,7 +128,6 @@ Example command to execute this script:
 
 ```
 $ ./05_case-control-analysis.sh /data/preprocessed/bams-str
-
 ```
 
 ### *5) Run outlier analysis*
@@ -139,7 +138,6 @@ Example command to execute this script:
 
 ```
 $ ./05_outlier-analysis.sh /data/preprocessed/bams-str
-
 ```
 
 ### *06) Annotate results*
