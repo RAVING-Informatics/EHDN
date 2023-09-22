@@ -157,11 +157,14 @@ In order to run this script you will need to set up `annovar`. Instructions for 
 
 Once you have generated all your desired results, you can run two post-processing scripts that will add further annotation to the result files.
 
-1) The first was written by Ben Weisburd and is available in his [str-analysis repository](https://github.com/broadinstitute/str-analysis/blob/main/str_analysis/annotate_EHdn_locus_outliers.py). There is a copy of this script in the ./scripts directory in this repository, however it may be worth downloading a more recent version in case there are updates. 
+1. The first was written by Ben Weisburd and is available in his [str-analysis repository](https://github.com/broadinstitute/str-analysis/blob/main/str_analysis/annotate_EHdn_locus_outliers.py). There is a copy of this script, alongside a run script (`run-bw-script.sh`) in the `./scripts` directory in this repository, however it may be worth downloading a more recent version in case there are updates. I run both the case-control and outlier result directories through this script.
 
-2) The second is a python script I made with the help of chatGPT `gene-counts.py`. It counts the total number of occurrences of each gene in every result tsv file within a batch, then adds a new column to each tsv with the count data. I use this to see how many times the repeat is being caleld across the cohort, with t he assumption that if it is common it is likely to be a false positive call or an artefact.
+```bash
+$ ./run-bw-script.sh <path-to-results-directory>
+```
 
-
+2. The second is a python script I made with the help of chatGPT `gene-counts.py`. It counts the total number of occurrences of each gene in every result tsv file within a batch, then adds a new column to each tsv with the count data. I use this to see how many times the repeat is being called across the cohort, with t he assumption that if it is common it is likely to be a false positive call or an artefact. I would recommend running this only on the `outlier` results (after running Ben’s script).
+   
 ## **Saving Results to IRDS**
 
 It is important to create a copy of the EHDN results you generate so that they can be accessed by other analysts and are not lost if the Nimbus VM is lost. It's important to be conservative with what you transfer to save space. By default I save the following files:
