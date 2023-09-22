@@ -164,7 +164,25 @@ $ ./run-bw-script.sh <path-to-results-directory>
 ```
 
 2. The second is a python script I made with the help of chatGPT `gene-counts.py`. It counts the total number of occurrences of each gene in every result tsv file within a batch, then adds a new column to each tsv with the count data. I use this to see how many times the repeat is being called across the cohort, with t he assumption that if it is common it is likely to be a false positive call or an artefact. I would recommend running this only on the `outlier` results (after running Ben’s script).
-   
+
+# Result Interpretation and Filtering
+
+## Case-control results
+
+- Ben’s postprocessing script will generate a separate entry for each sample in the merged str-profile (i.e. the sample of interest vs the Diversity dataset). You want to restrict the view to just the result for the sample of interest.
+    - Filter: `SampleId = <sample_of_interest>`
+- Ben’s postprocessing script will also provide the rank of your sample. Filter the results so that the sample ranks in the top ~10 and rank them in order of increasing sample rank.
+    - Filter: `SampleRank = <10`
+- Sort the results by increasing p-value.
+- Give priority to expansion calls that overlap matched known disease associated loci and matched reference TRs.
+
+## Outlier
+
+- Rank in order of highest z-score.
+- Ignore the SampleRankAtLocus and TotalSamplesAtLocus
+- Pay attention to the number value of the `gene_count` this will indicate how many times an expansion in that gene has appeared across the entire cohort.
+    - This is computed using the `[gene-counts.py](http://gene-counts.py)` python script.
+ 
 ## **Saving Results to IRDS**
 
 It is important to create a copy of the EHDN results you generate so that they can be accessed by other analysts and are not lost if the Nimbus VM is lost. It's important to be conservative with what you transfer to save space. By default I save the following files:
