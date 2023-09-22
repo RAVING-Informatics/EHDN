@@ -1,12 +1,12 @@
 #!/bin/sh
 
 #define variable
-ref=/data/references/Homo_sapiens_assembly38.fasta #path to reference sequence
+ref=/data/references/Homo_sapiens_assembly38_masked.fasta #path to reference sequence
 input_dir=$1 #path to input directory
 working_dir=/data/ExpansionHunterDenovo/
 
 #start while loop
-ls $input_dir | grep 'cram\|bam' | grep -v 'crai\|bai' | while read -r line ; do
+ls $input_dir | grep 'cram\|bam\|D08-294\|D08-301\|D10-309\|D13-1547' | grep -v 'crai\|bai' | while read -r line ; do
 basename=${line%%.*} 
 
 # 1) generate manifest
@@ -51,13 +51,17 @@ bash $working_dir/scripts/annotate_ehdn.sh \
     --ehdn-annotated-results $working_dir/results/outlier/${basename}.outlier_locus.annotated.tsv \
     --annovar-annotate-variation /data/annovar/annotate_variation.pl \
     --annovar-humandb /data/annovar/humandb \
-    --annovar-buildver hg38
+    --annovar-buildver hg38 &&
 
 bash $working_dir/scripts/annotate_ehdn.sh \
     --ehdn-results $working_dir/results/cc/${basename}.CC_locus.tsv \
     --ehdn-annotated-results $working_dir/results/cc/${basename}.CC_locus.annotated.tsv \
     --annovar-annotate-variation /data/annovar/annotate_variation.pl \
     --annovar-humandb /data/annovar/humandb \
-    --annovar-buildver hg38 ;
+    --annovar-buildver hg38 &&
+
+#remove unecessary files
+rm $working_dir/results/cc/${basename}.CC_locus.tsv
+rm $working_dir/results/outlier/${basename}.outlier_locus.tsv
 
 done
