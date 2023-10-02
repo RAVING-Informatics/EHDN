@@ -163,7 +163,12 @@ Once you have generated all your desired results, you can run two post-processin
 $ ./run-bw-script.sh <path-to-results-directory>
 ```
 
-2. The second is a python script I made with the help of chatGPT `gene-counts.py`. It counts the total number of occurrences of each gene in every result tsv file within a batch, then adds a new column to each tsv with the count data. I use this to see how many times the repeat is being called across the cohort, with t he assumption that if it is common it is likely to be a false positive call or an artefact. I would recommend running this only on the `outlier` results (after running Ben’s script).
+2. The second is an extra post-processing script for `outlier` analysis that includes a python script I made with the help of chatGPT `gene-counts.py` and a script leveraging `bedtools intersect`. `gene-counts.py` counts the total number of occurrences of each gene in every result tsv file within a batch, then adds a new column to each tsv with the count data. `bedtools intersect` determines how many times a given co-ordinate called in a sample intersects with the co-ordinates in the outputs from the rest of the samples. I use this to see how many times the gene / repeat is being called across the cohort, with the assumption that if it is common it is likely to be a false positive call or an artefact. I would recommend running this only on the `outlier` results (after running Ben’s script).
+
+Note, this script requires a `header.txt` file containing a copy of the header of the original results file plus two extra column headers for the new count data, i.e:
+```
+contig	start	end	motif	gene	region	top_case_zscore	high_case_counts	counts	gene_count  interval_count
+```
 
 # Result Interpretation and Filtering
 
