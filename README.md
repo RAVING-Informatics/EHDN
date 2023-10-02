@@ -61,7 +61,7 @@ $ mkdir <path_to_ehdn_working_directory>/results
 
 ### Download Reference Sequence
 
-To compute STR profiles, you need the human reference genome that was used to generate the BAM/CRAM files. BAM/CRAM files we use were aligned to `Homo_sapiens_assembly38.fasta` (index = `Homo_sapiens_assembly38.fasta.fai`). This is available online within the [GATK Resource Bundle](https://console.cloud.google.com/storage/browser/genomics-public-data/resources/broad/hg38/v0/)or on the IRDS. Do not use BAM/CRAM files that were not aligned to this reference; the STR profiles will compute, but the pipeline will fail if you try to merge the STR profiles, and an error like that below will appear.`[error] Invalid contig name KN707896.1`
+To compute STR profiles, you need the human reference genome that was used to generate the BAM/CRAM files. Our BAM/CRAM files we use were aligned to `Homo_sapiens_assembly38.fasta` (index = `Homo_sapiens_assembly38.fasta.fai`). This is available online within the [GATK Resource Bundle](https://console.cloud.google.com/storage/browser/genomics-public-data/resources/broad/hg38/v0/) or on the IRDS. Do not use BAM/CRAM files that were not aligned to this reference; the STR profiles will compute, but the pipeline will fail if you try to merge the STR profiles, and an error like that below will appear.`[error] Invalid contig name KN707896.1`
 
 ### Download Polaris Control Dataset
 
@@ -69,7 +69,7 @@ We use the HiSeqX Diversity Cohort from the Illumina Polaris Project of populati
 
 ### Annotation
 
-For annotations like gene names to be added to the EHDN output files, you need to [set-up this annotation step](https://github.com/Illumina/ExpansionHunterDenovo/blob/master/documentation/08_Annotation.md). The annotation procedure leverages [ANNOVAR](https://annovar.openbioinformatics.org/en/latest/user-guide/download/) and the `annotate_ehdn.sh` script in the EHDN GitHub Repository. Remember to use hg38 as the build-version.
+For annotations like gene names to be added to the EHDN output files, you need to [set-up this annotation step](https://github.com/Illumina/ExpansionHunterDenovo/blob/master/documentation/08_Annotation.md). The annotation procedure leverages [ANNOVAR](https://annovar.openbioinformatics.org/en/latest/user-guide/download/) and the `annotate_ehdn.sh` script in the EHDN GitHub Repository. The script will already be available in the `scripts/` directory in this repository, but you will need to download and set up `ANNOVAR`. Remember to use hg38 as the build-version.
 
 ---
 
