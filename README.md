@@ -189,8 +189,9 @@ $ ./outlier-postprocess.sh <path-to-results-directory>
 
 - Rank in order of highest z-score.
 - Ignore the SampleRankAtLocus and TotalSamplesAtLocus
-- Pay attention to the number value of the `gene_count` this will indicate how many times an expansion in that gene has appeared across the entire cohort.
-    - This is computed using the `[gene-counts.py](http://gene-counts.py)` python script.
+- Pay attention to the number value of the `gene_count` and `interval_count`. These will indicate how many times an expansion in that gene/locus has appeared across the entire cohort.
+    - `gene_count` is computed using the `[gene-counts.py](http://gene-counts.py)` python script.
+    - `interval_count` is computed using `bedtools`.
  
 ## **Saving Results to IRDS**
 
