@@ -71,6 +71,11 @@ We use the HiSeqX Diversity Cohort from the Illumina Polaris Project of populati
 
 For annotations like gene names to be added to the EHDN output files, you need to [set-up this annotation step](https://github.com/Illumina/ExpansionHunterDenovo/blob/master/documentation/08_Annotation.md). The annotation procedure leverages [ANNOVAR](https://annovar.openbioinformatics.org/en/latest/user-guide/download/) and the `annotate_ehdn.sh` script in the EHDN GitHub Repository. The script will already be available in the `scripts/` directory in this repository, but you will need to download and set up `ANNOVAR`. Remember to use hg38 as the build-version.
 
+To run Ben Weisburd's scripts, you must install the python dependencies via:
+```
+python3 -m pip install --upgrade str-analysis@git+https://github.com/broadinstitute/str-analysis
+```
+
 ---
 
 ## **Run**
