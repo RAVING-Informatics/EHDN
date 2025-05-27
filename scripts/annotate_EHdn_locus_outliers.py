@@ -36,9 +36,9 @@ $7             counts : 7.01,4.05,0.95,5.42,9.00,2.18
 """
 import argparse
 import collections
+import gzip
 import os
 import pandas as pd
-from pprint import pprint
 import re
 from tqdm import tqdm
 
@@ -48,6 +48,7 @@ from str_analysis.utils.canonical_repeat_unit import compute_canonical_motif
 from str_analysis.utils.gtf_utils import compute_genomic_region_of_interval
 from str_analysis.utils.misc_utils import parse_interval
 from str_analysis.utils.file_utils import open_file, file_exists
+from str_analysis.utils.eh_catalog_utils import get_variant_catalog_iterator, parse_motifs_from_locus_structure
 
 
 def parse_args():
@@ -79,8 +80,16 @@ def parse_args():
                         "overlaps an interval in this bed file and shares the same normalized motif, the locus id of "
                         "this matching interval will be recorded in this column. When no matching interval is found, "
                         "the value with be N/A.", default=[])
+    parser.add_argument("--catalog-json-file", action="append", help="Path to the ExpansionHunter catalog .json file, "
+                        "containing additional annotations. This is a more flexible alternative to specifying "
+                        "--tr-bed-file since, for catalog loci that match the input region and motif, all non-standard "
+                        "keys from the catalog record will be added as columns in the output table. This option can be "
+                        "specified more than once.", default=[])
+    parser.add_argument("--test", "-t", type=int, help="Only process the first N rows of the input files")
 
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--show-progress-bar", action="store_true", help="Show a progress bar")
+
     parser.add_argument("-o", "--output-dir", help="Output directory")
 
     parser.add_argument("ehdn_locus_outlier_tsv", nargs="+", help="One or more EHdn locus outlier results .tsv file(s)")
@@ -102,9 +111,9 @@ CASE_CONTROL_COLUMNS = {"contig", "start", "end", "motif", "pvalue", "bonf_pvalu
 OVERLAP_MARGIN = 600  # bp  (fragment length)
 
 
-def get_overlapping_interval_generator(interval_tree, require_motif_match=False):
+def get_overlapping_interval_generator(interval_tree, require_motif_match=False, verbose=False):
     """This function takes a dictionary that maps chromosome name to IntervalTree of intervals on that chromosome.
-    The intervals must either have 1) data == None or 2) data == 2-tuple (motif, locus_id).
+    The intervals must either have 1) data == None or 2) data == 2-tuple (motif, reference_region).
     In the case of 1) the resulting function will check for simple overlap between EHdn outlier record(s) and the
     Intervals in the IntervalTree and return True if there's an overlap. In the case of 2) they will also check
     whether the motifs match and, if they do, return the locus id of the matching Interval.
@@ -120,18 +129,56 @@ def get_overlapping_interval_generator(interval_tree, require_motif_match=False)
 
         for locus_interval in interval_tree[chrom].overlap(start - OVERLAP_MARGIN, end + OVERLAP_MARGIN):
             if not require_motif_match:
+                if verbose:
+                    print(f"{chrom}:{start}-{end} outlier overlaps with known locus: {chrom}:{locus_interval.begin}-{locus_interval.end} {locus_interval.data}")
                 return True
 
             interval_canonical_motif = compute_canonical_motif(locus_interval.data[0])
             if interval_canonical_motif != outlier_table_row["CanonicalMotif"]:
                 continue
-            matching_known_disease_associated_locus_id = locus_interval.data[1]
-            return matching_known_disease_associated_locus_id
+            matching_reference_region = locus_interval.data[1]
+            if verbose:
+                print(f"{chrom}:{start}-{end} outlier overlaps and matches the motif of known locus: {chrom}:{locus_interval.begin}-{locus_interval.end} {locus_interval.data}")
+            return matching_reference_region
 
         if not require_motif_match:
             return False
         else:
             return None
+
+    return get_overlapping_interval
+
+
+def add_catalog_record_to_row(interval_tree):
+    """This function takes a dictionary that maps chromosome name to IntervalTree of intervals on that chromosome.
+    The intervals must either have 1) data == None or 2) data == 4-tuple (motif, reference_region, locus_id, record).
+    In the case of 1) the resulting function will check for simple overlap between EHdn outlier record(s) and the
+    Intervals in the IntervalTree and update the EHdn record with all non-standard keys from the Interval's record.
+
+    Args:
+        interval_tree (dict): a dictionary that maps chromosome names to IntervalTrees
+    """
+    def get_overlapping_interval(outlier_table_row):
+        chrom = outlier_table_row["contig"].replace("chr", "")
+        start = int(outlier_table_row["start"])
+        end = int(outlier_table_row["end"])
+        outlier_table_row_copy = None
+        for locus_interval in interval_tree[chrom].overlap(start - OVERLAP_MARGIN, end + OVERLAP_MARGIN):
+            interval_canonical_motif = compute_canonical_motif(locus_interval.data[0])
+            if interval_canonical_motif != outlier_table_row["CanonicalMotif"]:
+                continue
+
+            if outlier_table_row_copy is None:
+                outlier_table_row_copy = outlier_table_row.copy()
+
+            record = locus_interval.data[3]
+            for key, value in record.items():
+                if key not in outlier_table_row and key not in ("ReferenceRegion", "LocusStructure", "RepeatUnit", "LocusId", "CanonicalMotif", "VariantType"):
+                    outlier_table_row_copy[key] = value
+
+            return outlier_table_row_copy
+
+        return outlier_table_row
 
     return get_overlapping_interval
 
@@ -148,9 +195,9 @@ def parse_known_disease_associated_loci(args, parser):
     # generate an IntervalTree for known disease-associated loci
     known_disease_loci_it = collections.defaultdict(IntervalTree)
     for _, row in known_disease_loci_df.iterrows():
-        chrom, start, end = parse_interval(row["MainReferenceRegion"])
+        chrom, start_0based, end_1based = parse_interval(row["MainReferenceRegion"])
         chrom = chrom.replace("chr", "")
-        i = Interval(start, end, data=(row["RepeatUnit"], row["LocusId"]))
+        i = Interval(start_0based, end_1based, data=(row["RepeatUnit"], f"{chrom}:{start_0based}-{end_1based}", row["LocusId"]))
         known_disease_loci_it[chrom].add(i)
 
         canonical_motifs.add(compute_canonical_motif(row["RepeatUnit"]))
@@ -174,31 +221,94 @@ def parse_sample_id_and_counts_column(counts_value):
         }
 
 
-def parse_bed_to_interval_tree(bed_file_path, name_field_is_repeat_unit=False, verbose=False):
+def parse_catalog_json_to_interval_tree(catalog_json_path, verbose=False, show_progress_bar=False, n=None):
+    if verbose:
+        print(f"Parsing {catalog_json_path}")
+
+    counter = 0
+    interval_tree = collections.defaultdict(IntervalTree)
+    for record in get_variant_catalog_iterator(catalog_json_path, show_progress_bar=show_progress_bar):
+        if "|" in record["LocusStructure"]:
+            print(f"WARNING: Skipping locus {record['LocusId']} because its LocusStructure {record['LocusStructure']} contains a sequence swap operation '|' which is not supported by TRGT.")
+            continue
+
+        motifs = parse_motifs_from_locus_structure(record["LocusStructure"])
+        if not motifs:
+            raise ValueError(f"Unable to parse LocusStructure '{record['LocusStructure']}' in variant catalog record: {record}")
+
+        reference_regions = record["ReferenceRegion"]
+        if not isinstance(reference_regions, list):
+            reference_regions = [reference_regions]
+
+        if len(motifs) != len(reference_regions):
+            print(f"WARNING: Number of motifs ({len(motifs)}) != number of reference regions ({len(reference_regions)}) in record: {record}")
+            continue
+
+        for motif, reference_region in zip(motifs, reference_regions):
+            chrom, start_0based, end_1based = parse_interval(reference_region)
+            chrom = chrom.replace("chr", "")
+
+            if start_0based >= end_1based:
+                print(f"WARNING: Skipping locus {record['LocusId']} because its ReferenceRegion {record['ReferenceRegion']} has a width = {end_1based - start_0based}bp")
+                continue
+
+            interval = Interval(start_0based, end_1based, data=(motif, f"{chrom}:{start_0based}-{end_1based}", record["LocusId"], record))
+            interval_tree[chrom].add(interval)
+
+        counter += 1
+        if n is not None and counter >= n:
+            break
+
+    print(f"Finished parsing {counter:,d} rows from {catalog_json_path}")
+
+    return interval_tree
+
+
+def parse_bed_to_interval_tree(bed_file_path, name_field_is_repeat_unit=False, verbose=False, show_progress_bar=False, n=None):
+    """This function takes a path to a BED file and returns a dictionary that maps chromosome name to IntervalTree of
+    intervals on that chromosome.
+
+    Args:
+        bed_file_path (str): path to a BED file
+        name_field_is_repeat_unit (bool): if True, the name field (column #4) contains the repeat unit
+        verbose (bool): if True, print progress messages
+        show_progress_bar (bool): if True, show a progress bar
+        n (int): if not None, only process the first N rows of the input file
+    """
+
     interval_tree = collections.defaultdict(IntervalTree)
 
-    f = open_file(bed_file_path, download_local_copy_before_opening=True)
+    f = open_file(bed_file_path, download_local_copy_before_opening=True, is_text_file=True)
     if verbose:
         print(f"Parsing {bed_file_path}", "assuming the name field contains the repeat unit" if name_field_is_repeat_unit else "")
+
+    if show_progress_bar:
         f = tqdm(f, unit=" records", unit_scale=True)
 
     valid_nucleotides = set("ACGTN")
 
     counter = 0
     for i, line in enumerate(f):
-        fields = line.strip().split("\t")
-        chrom = fields[0].replace("chr", "")
-        start_0based = int(fields[1])
-        end_1based = int(fields[2])
+        if n is not None and i >= n:
+            break
+
+        try:
+            fields = line.strip().split("\t")
+            chrom = fields[0].replace("chr", "")
+            start_0based = int(fields[1])
+            end_1based = int(fields[2])
+        except Exception as e:
+            raise ValueError(f"Unable to parse line #{i} in file {bed_file_path}: {e}")
+            
         if not name_field_is_repeat_unit:
-            interval = Interval(start_0based + 1, end_1based, data=None)
+            interval = Interval(start_0based, end_1based, data=None)
         else:
             repeat_unit = fields[3].strip("()*")
             if set(repeat_unit) - valid_nucleotides:
                 print(f"WARNING: Unexpected characters in motif '{repeat_unit}' in line #{i + 1}: {line}. Skipping...")
                 continue
             locus_id = f"{chrom}-{start_0based + 1}-{end_1based}-{repeat_unit}"
-            interval = Interval(start_0based + 1, end_1based, data=(repeat_unit, locus_id))
+            interval = Interval(start_0based, end_1based, data=(repeat_unit, f"{chrom}:{start_0based}-{end_1based}", locus_id))
 
         counter += 1
         interval_tree[chrom].add(interval)
@@ -208,13 +318,14 @@ def parse_bed_to_interval_tree(bed_file_path, name_field_is_repeat_unit=False, v
     return interval_tree
 
 
-def compute_genomic_region_of_row(row, verbose=False):
+def compute_genomic_region_of_row(row, verbose=False, show_progress_bar=False, n=None):
     matched_reference_TR = row["MatchedReferenceTR"]
     if matched_reference_TR and not pd.isna(matched_reference_TR):
         chrom, start, end = parse_interval(matched_reference_TR)
     else:
         chrom, start, end = row["contig"], row["start"], row["end"]
-    return compute_genomic_region_of_interval(chrom, start, end, verbose=verbose)
+
+    return compute_genomic_region_of_interval(chrom, start, end, verbose=verbose, show_progress_bar=show_progress_bar, n=n)
 
 
 def main():
@@ -240,11 +351,21 @@ def main():
 
     # prepare functions that will be used to annotate the outlier tables
     path_to_column_func = {}
-
     current_interval_tree = parse_bed_to_interval_tree(
-        args.reference_tr_bed_file, name_field_is_repeat_unit=True, verbose=args.verbose)
+        args.reference_tr_bed_file, name_field_is_repeat_unit=True, verbose=args.verbose,
+        show_progress_bar=args.show_progress_bar, n=args.test)
     path_to_column_func["MatchedReferenceTR"] = get_overlapping_interval_generator(
         current_interval_tree, require_motif_match=True)
+
+    path_to_row_modification_func = {}
+    for json_file_path in args.catalog_json_file:
+        current_interval_tree = parse_catalog_json_to_interval_tree(
+            json_file_path, verbose=args.verbose, show_progress_bar=args.show_progress_bar, n=args.test)
+
+        column_name = "MatchedCatalog:" + re.sub(".json(.gz)?$", "", os.path.basename(json_file_path)).split(".")[0]
+        path_to_column_func[column_name] = get_overlapping_interval_generator(
+            current_interval_tree, require_motif_match=True)
+        path_to_row_modification_func[column_name] = add_catalog_record_to_row(current_interval_tree)
 
     for bed_file_path_list, contains_TRs in [(args.tr_bed_file, True), (args.overlap_bed_file, False)]:
         for bed_file_path in bed_file_path_list:
@@ -259,21 +380,28 @@ def main():
 
             # generate IntervalTrees
             current_interval_tree = parse_bed_to_interval_tree(
-                bed_file_path, name_field_is_repeat_unit=contains_TRs, verbose=args.verbose)
+                bed_file_path, name_field_is_repeat_unit=contains_TRs,
+                verbose=args.verbose, show_progress_bar=args.show_progress_bar, n=args.test)
 
             # store the function for computing overlap with these IntervalTrees
             path_to_column_func[column_name] = get_overlapping_interval_generator(
                 current_interval_tree, require_motif_match=contains_TRs)
 
+
     # parse EHdn tables
     locus_outlier_dfs = []
     case_control_dfs = []
+    output_dir = None
     for locus_outlier_tsv in args.ehdn_locus_outlier_tsv:
         print(f"Processing rows from {locus_outlier_tsv}")
         try:
             df = pd.read_table(locus_outlier_tsv)
         except Exception as e:
             parser.error(f"Couldn't read locus outlier results from {locus_outlier_tsv}: {e}")
+
+        if len(df) == 0:
+            print(f"WARNING: {locus_outlier_tsv} is empty. Skipping...")
+            continue
 
         # make sure the input table has the expected columns
         table_type = None
@@ -299,15 +427,19 @@ def main():
         df["MatchedKnownDiseaseAssociatedLocus"] = df.apply(known_disease_associated_loci_column_func, axis=1)
         df["MatchedKnownDiseaseAssociatedMotif"] = df["CanonicalMotif"].isin(known_disease_associated_motifs)
 
+        # compute overlap with other bed and catalog files
+        for column_name, column_func in path_to_column_func.items():
+            df[column_name] = df.apply(column_func, axis=1)
+
+        # add keys from catalogs
+        for column_name, row_modification_func in path_to_row_modification_func.items():
+            df = df.apply(row_modification_func, axis=1)
+
         # compute overlap with genes
         for genes_gtf in args.genes_gtf:
             label = os.path.basename(genes_gtf).split(".")[0].title()
             df[[f"{label}GeneRegion", f"{label}GeneName", f"{label}GeneId", f"{label}TranscriptId"]] = df.apply(
-                lambda input_row: compute_genomic_region_of_row(input_row, verbose=args.verbose), axis=1, result_type='expand')
-
-        # compute overlap with other bed files
-        for column_name, column_func in path_to_column_func.items():
-            df[column_name] = df.apply(column_func, axis=1)
+                lambda input_row: compute_genomic_region_of_row(input_row, verbose=args.verbose, show_progress_bar=args.show_progress_bar, n=args.test), axis=1, result_type='expand')
 
         # split the counts column and output a row for each sample
         output_rows = []
@@ -323,14 +455,20 @@ def main():
         output_df = pd.DataFrame(output_rows)
 
         output_dir = args.output_dir or os.path.dirname(locus_outlier_tsv)
-        output_path = os.path.join(output_dir, re.sub(".tsv", "", os.path.basename(locus_outlier_tsv))+".annotated.tsv")
+        output_path = os.path.join(output_dir, re.sub(".tsv", "", os.path.basename(locus_outlier_tsv))+".annotated.tsv.gz")
 
-        with open(output_path, "wt") as f:
+        with gzip.open(output_path, "wt") as f:
             output_df.to_csv(f, sep="\t", index=False)
 
         df_list.append(output_df)
 
         print(f"Wrote {len(output_df):,d} rows to {output_path} ({len(output_df)/len(df):0.1f}x the number of input rows)")
+
+        if args.test:
+            break
+
+    if output_dir is None:
+        return
 
     # output a combined table
     for label, df_list, sort_by in [
@@ -343,9 +481,9 @@ def main():
         combined_df = pd.concat(df_list)
         combined_df = combined_df.sort_values(sort_by, ascending=True)
         #combined_df = combined_df.sort_values(["Source", "MotifSize", "CanonicalMotif"], ascending=True)
-        output_path = os.path.join(output_dir, f"combined.{len(df_list)}_{label}_tables.annotated.tsv")
+        output_path = os.path.join(output_dir, f"combined.{len(df_list)}_{label}_tables.annotated.tsv.gz")
         print("Combining", len(df_list), label, "tables")
-        with open(output_path, "wt") as f:
+        with gzip.open(output_path, "wt") as f:
             combined_df.to_csv(f, sep="\t", index=False)
         print(f"Wrote {len(combined_df):,d} rows to {output_path}")
 
