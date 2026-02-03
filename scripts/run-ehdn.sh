@@ -1,67 +1,120 @@
-#!/bin/sh
+#!/bin/bash -l
+#SBATCH --job-name=ehdn
+#SBATCH --account=pawsey0933
+#SBATCH --partition=work
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=16G
+#SBATCH --nodes=1
+#SBATCH --time=2:00:00
+#SBATCH --mail-user=chiara.folland@perkins.org.au
+#SBATCH --mail-type=END
+#SBATCH --error=%j.%x.err
+#SBATCH --output=%j.%x.out
+#SBATCH --export=ALL
 
-#define variable
-ref=/data/references/Homo_sapiens_assembly38_masked.fasta #path to reference sequence
-input_dir=$1 #path to input directory
-working_dir=/data/ExpansionHunterDenovo/
+source /software/projects/pawsey0933/cfolland/miniconda3/etc/profile.d/mamba.sh
+mamba activate /software/projects/pawsey0933/cfolland/miniforge3/envs/ehdn 
 
-#start while loop
-ls $input_dir | grep 'cram\|bam\|D08-294\|D08-301\|D10-309\|D13-1547' | grep -v 'crai\|bai' | while read -r line ; do
-basename=${line%%.*} 
+# Input parameters
+line="$1"
 
-# 1) generate manifest
-    echo "Generate manifest for ${basename}"
-    cp $working_dir/manifests/manifest.tsv $working_dir/manifests/$basename.manifest.tsv
-    sed -i 's|basename|'$basename'|g' $working_dir/manifests/$basename.manifest.tsv &&
+# Paths
+ref=/software/projects/pawsey0933/sv/references/hg38_masked/Homo_sapiens_assembly38_masked.fasta
+input_dir=/scratch/pawsey0933/gmonahan/preprocessed/rpl
+working_dir=/scratch/pawsey0933/cfolland/EHDN/
+basename=${line%%.*}
+ehdn=/software/projects/pawsey0933/EHDN/bin/ExpansionHunterDenovo
+annovar=/software/projects/pawsey0933/EHDN/annovar
 
-# 2) compute str-profile from all files in input directory
+# Generate manifest
+mkdir -p $working_dir/manifests/
+manifest_path=$working_dir/manifests/$basename.manifest.tsv
+if [ ! -f "$manifest_path" ]; then
+    echo "Generating manifest for ${basename}"
+    cp $working_dir/manifests/manifest.tsv "$manifest_path"
+    sed -i 's|basename|'$basename'|g' "$manifest_path"
+else
+    echo "Manifest already exists: $manifest_path"
+fi
+
+# Profile STRs
+mkdir -p $working_dir/str-profiles/
+profile_prefix=$working_dir/str-profiles/$basename
+if [ ! -f "${profile_prefix}.str_profile.json" ]; then
     echo "Profiling ${basename}"
-    ExpansionHunterDenovo profile \
+    $ehdn profile \
         --reads $input_dir/$line \
         --reference $ref \
-        --output-prefix $working_dir/str-profiles/$basename \
+        --output-prefix "$profile_prefix" \
         --min-anchor-mapq 50 \
-        --max-irr-mapq 40 &&
+        --max-irr-mapq 40
+else
+    echo "Profile already exists: ${profile_prefix}.str_profile.json"
+fi
 
-# 3) merge str profiles computed using Expansion Hunter Denovo
+# Merge STR profiles
+mkdir -p $working_dir/str-profiles/merged/
+merged_prefix=$working_dir/str-profiles/merged/$basename
+if [ ! -f "${merged_prefix}.multisample_profile.json" ]; then
     echo "Merging ${basename}" 
-    ExpansionHunterDenovo merge \
+    $ehdn merge \
         --reference $ref \
-        --manifest $working_dir/manifests/$basename.manifest.tsv \
-        --output-prefix $working_dir/str-profiles/merged/$basename && 
+        --manifest "$manifest_path" \
+        --output-prefix "$merged_prefix"
+else
+    echo "Merged profile already exists: ${merged_prefix}.multisample_profile.json"
+fi
 
-# 4) expansion hunter de novo outlier and cc analysis
-echo "Compute locus outliers for ${basename}"
-$working_dir/scripts/outlier.py locus \
-        --manifest $working_dir/manifests/$basename.manifest.tsv \
-        --multisample-profile $working_dir/str-profiles/merged/$basename.multisample_profile.json \
-        --output $working_dir/results/outlier/$basename.outlier_locus.tsv &&
+# Outlier analysis
+mkdir -p $working_dir/results/outlier/
+outlier_result=$working_dir/results/outlier/${basename}.outlier_locus.tsv
+if [ ! -f "$outlier_result" ]; then
+    echo "Computing locus outliers for ${basename}"
+    $working_dir/scripts/outlier.py locus \
+        --manifest "$manifest_path" \
+        --multisample-profile "${merged_prefix}.multisample_profile.json" \
+        --output "$outlier_result"
+else
+    echo "Outlier results already exist: $outlier_result"
+fi
 
-echo "Compute locus CC analysis for ${basename}"
-$working_dir/scripts/casecontrol.py locus \
-        --manifest $working_dir/manifests/$basename.manifest.tsv \
-        --multisample-profile $working_dir/str-profiles/merged/$basename.multisample_profile.json \
-        --output $working_dir/results/cc/$basename.CC_locus.tsv &&
+# Case-control analysis
+mkdir -p $working_dir/results/cc/
+cc_result=$working_dir/results/cc/${basename}.CC_locus.tsv
+if [ ! -f "$cc_result" ]; then
+    echo "Computing case-control locus analysis for ${basename}"
+    $working_dir/scripts/casecontrol.py locus \
+        --manifest "$manifest_path" \
+        --multisample-profile "${merged_prefix}.multisample_profile.json" \
+        --output "$cc_result"
+else
+    echo "Case-control results already exist: $cc_result"
+fi
 
-# 5) annotate outlier and cc analysis
-echo "Annotate results for ${basename}"
+# Annotation
+annotated_outlier=$working_dir/results/outlier/${basename}.outlier_locus.annotated.tsv
+if [ ! -f "$annotated_outlier" ]; then
+    echo "Annotating outlier results for ${basename}"
+    bash $working_dir/scripts/annotate_ehdn.sh \
+        --ehdn-results "$outlier_result" \
+        --ehdn-annotated-results "$annotated_outlier" \
+        --annovar-annotate-variation $annovar/annotate_variation.pl \
+        --annovar-humandb $annovar/humandb \
+        --annovar-buildver hg38
+else
+    echo "Annotated outlier result already exists: $annotated_outlier"
+fi
 
-bash $working_dir/scripts/annotate_ehdn.sh \
-    --ehdn-results $working_dir/results/outlier/${basename}.outlier_locus.tsv \
-    --ehdn-annotated-results $working_dir/results/outlier/${basename}.outlier_locus.annotated.tsv \
-    --annovar-annotate-variation /data/annovar/annotate_variation.pl \
-    --annovar-humandb /data/annovar/humandb \
-    --annovar-buildver hg38 &&
-
-bash $working_dir/scripts/annotate_ehdn.sh \
-    --ehdn-results $working_dir/results/cc/${basename}.CC_locus.tsv \
-    --ehdn-annotated-results $working_dir/results/cc/${basename}.CC_locus.annotated.tsv \
-    --annovar-annotate-variation /data/annovar/annotate_variation.pl \
-    --annovar-humandb /data/annovar/humandb \
-    --annovar-buildver hg38 &&
-
-#remove unecessary files
-rm $working_dir/results/cc/${basename}.CC_locus.tsv
-rm $working_dir/results/outlier/${basename}.outlier_locus.tsv
-
-done
+annotated_cc=$working_dir/results/cc/${basename}.CC_locus.annotated.tsv
+if [ ! -f "$annotated_cc" ]; then
+    echo "Annotating case-control results for ${basename}"
+    bash $working_dir/scripts/annotate_ehdn.sh \
+        --ehdn-results "$cc_result" \
+        --ehdn-annotated-results "$annotated_cc" \
+        --annovar-annotate-variation $annovar/annotate_variation.pl \
+        --annovar-humandb $annovar/humandb \
+        --annovar-buildver hg38
+else
+    echo "Annotated case-control result already exists: $annotated_cc"
+fi
